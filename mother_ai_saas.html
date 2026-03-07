@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mother AI Pro - SaaS Edition</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #0f0f11;
+            color: #e0e0e0;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+        .container {
+            width: 100%;
+            max-width: 850px;
+            background-color: #1e1e24;
+            padding: 40px;
+            border-radius: 16px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+        }
+        h1 { text-align: center; color: #bb86fc; margin-bottom: 5px; }
+        p.subtitle { text-align: center; color: #a0a0a0; margin-bottom: 30px; }
+        
+        /* Tampilan Login */
+        #login-screen { text-align: center; }
+        .login-box {
+            background-color: #2a2a35; padding: 40px; border-radius: 12px;
+            max-width: 400px; margin: 0 auto; border: 1px solid #444;
+        }
+        .btn-google {
+            background-color: #fff; color: #000; border: none;
+            padding: 12px 20px; border-radius: 8px; font-size: 16px; font-weight: bold;
+            cursor: pointer; width: 100%; display: flex; align-items: center; justify-content: center;
+            gap: 10px; transition: 0.3s;
+        }
+        .btn-google:hover { background-color: #ddd; }
+
+        /* Tampilan Aplikasi Utama (Disembunyikan awalnya) */
+        #app-screen { display: none; }
+        .header-app { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #444; padding-bottom: 20px; margin-bottom: 20px; }
+        .user-info { display: flex; align-items: center; gap: 15px; }
+        .user-info img { width: 40px; height: 40px; border-radius: 50%; border: 2px solid #bb86fc; }
+        .btn-logout { background-color: #cf6679; color: white; border: none; padding: 8px 15px; border-radius: 6px; cursor: pointer; font-weight: bold; }
+        .btn-logout:hover { background-color: #ff758f; }
+
+        /* Form Style */
+        label { font-weight: bold; display: block; margin-bottom: 5px; margin-top: 15px; color: #03dac6; font-size: 14px; }
+        input[type="text"], select, textarea {
+            width: 100%; padding: 12px; background-color: #2c2c36; border: 1px solid #444; border-radius: 8px; color: #fff; font-size: 14px; box-sizing: border-box;
+        }
+        textarea { resize: vertical; height: 100px; }
+        textarea#resultOutput { height: 250px; background-color: #000; border: 1px solid #bb86fc; font-family: monospace; }
+        .btn-action { background-color: #bb86fc; color: #000; border: none; padding: 15px; margin-top: 20px; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; width: 100%; transition: 0.3s; }
+        .btn-action:hover { background-color: #9965f4; }
+    </style>
+</head>
+<body>
+
+<!-- HALAMAN LOGIN -->
+<div class="container" id="login-screen">
+    <h1>🧠 Mother AI Pro</h1>
+    <p class="subtitle">Platform Pembuat Agen AI Kelas Enterprise</p>
+    <div class="login-box">
+        <h3 style="margin-top:0;">Akses Khusus Member</h3>
+        <p style="font-size: 14px; color: #bbb; margin-bottom: 25px;">Silakan login untuk mengakses tools. Hanya email yang terdaftar yang diizinkan masuk.</p>
+        <button class="btn-google" id="btn-login">
+            <img src="https://upload.wikimedia.org/wikipedia/commons/5/53/Google_%22G%22_Logo.svg" width="20" alt="Google Logo">
+            Sign in with Google
+        </button>
+    </div>
+</div>
+
+<!-- HALAMAN APLIKASI UTAMA (MUNCUL JIKA LOGIN BERHASIL) -->
+<div class="container" id="app-screen">
+    <div class="header-app">
+        <div class="user-info">
+            <img id="user-photo" src="" alt="Profile">
+            <div>
+                <strong id="user-name">Nama User</strong><br>
+                <span id="user-email" style="font-size: 12px; color: #bbb;">email@gmail.com</span>
+            </div>
+        </div>
+        <button class="btn-logout" id="btn-logout">Logout</button>
+    </div>
+
+    <h2 style="color: #bb86fc; margin-top: 0;">Rancang Agen AI Anda</h2>
+    
+    <label>Peran / Profesi Utama AI:*</label>
+    <input type="text" id="aiRole" placeholder="Contoh: Pakar Marketing, Programmer Python">
+
+    <label>Deskripsi Tugas Utama AI:*</label>
+    <textarea id="aiTask" placeholder="Jelaskan secara spesifik apa yang harus dilakukan AI ini..."></textarea>
+
+    <button class="btn-action" onclick="generatePrompt()">✨ Rangkai System Instruction</button>
+
+    <label>Hasil System Instruction:</label>
+    <textarea id="resultOutput" readonly placeholder="Hasil rancangan akan muncul di sini..."></textarea>
+</div>
+
+<!-- ================= SCRIPT FIREBASE & LOGIKA ================= -->
+<script type="module">
+    // 1. Import Firebase dari CDN Google
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
+    import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
+
+    // --- 👇 BAGIAN YANG HARUS ANDA UBAH 👇 ---
+    // 2. PASTE CONFIG FIREBASE ANDA DI SINI (Dari Langkah 2 Poin 9)
+// For Firebase JS SDK v7.20.0 and later, measurementId is optional
+	const firebaseConfig = {
+	  apiKey: "AIzaSyALV3uW2j38op7Ta0YQMnQovnmHwXH2_Po",
+	  authDomain: "mother-ai-saas.firebaseapp.com",
+	  projectId: "mother-ai-saas",
+	  storageBucket: "mother-ai-saas.firebasestorage.app",
+	  messagingSenderId: "560652310561",
+	  appId: "1:560652310561:web:145592be4f8d6963ff2b60",
+	  measurementId: "G-B2HB8FEZBM"
+	};
+
+    // 3. WHITELIST PELANGGAN SAAS ANDA (Ganti dengan email pembeli)
+    // Jika emailnya tidak ada di daftar ini, mereka akan ditendang keluar!
+    const allowedEmails =[
+        "khoirurroziqincreative@gmail.com", // Email Anda sendiri
+        "klien_satu@gmail.com", 
+        "bos_perusahaan@yahoo.com"
+    ];
+    // --- 👆 BAGIAN YANG HARUS ANDA UBAH 👆 ---
+
+    // Inisialisasi Firebase
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const provider = new GoogleAuthProvider();
+
+    // Referensi Elemen HTML
+    const loginScreen = document.getElementById('login-screen');
+    const appScreen = document.getElementById('app-screen');
+    const btnLogin = document.getElementById('btn-login');
+    const btnLogout = document.getElementById('btn-logout');
+
+    // Tombol Login Ditekan
+    btnLogin.addEventListener('click', () => {
+        signInWithPopup(auth, provider).catch((error) => {
+            alert("Gagal login: " + error.message);
+        });
+    });
+
+    // Tombol Logout Ditekan
+    btnLogout.addEventListener('click', () => {
+        signOut(auth);
+    });
+
+    // Pantau Status Login User (The "Satpam" Logic)
+    onAuthStateChanged(auth, (user) => {
+        if (user) {
+            // CEK APAKAH EMAIL USER ADA DI DAFTAR PEMBELI (WHITELIST)
+            if (allowedEmails.includes(user.email)) {
+                // Berhasil & Sah -> Tampilkan Aplikasi
+                loginScreen.style.display = 'none';
+                appScreen.style.display = 'block';
+                
+                // Tampilkan profil user di pojok kiri atas
+                document.getElementById('user-name').innerText = user.displayName;
+                document.getElementById('user-email').innerText = user.email;
+                document.getElementById('user-photo').src = user.photoURL;
+            } else {
+                // Email tidak terdaftar -> Tendang!
+                alert(`Akses Ditolak!\nEmail ${user.email} belum berlangganan Mother AI Pro. Silakan hubungi Admin untuk melakukan pembelian.`);
+                signOut(auth); // Langsung logout otomatis
+            }
+        } else {
+            // Belum login -> Tampilkan Layar Login
+            loginScreen.style.display = 'block';
+            appScreen.style.display = 'none';
+        }
+    });
+
+    // Logika Pembuat Prompt (Versi Sederhana untuk MVP)
+    window.generatePrompt = function() {
+        const role = document.getElementById('aiRole').value;
+        const task = document.getElementById('aiTask').value;
+        if(!role || !task) { alert("Isi form dengan lengkap!"); return; }
+        
+        const prompt = `[PERAN]\nKamu bertindak sebagai: ${role}.\n\n[TUGAS UTAMA]\n${task}\n\n[ATURAN]\n1. Jangan berhalusinasi.\n2. Jawab dengan profesional dan jelas.`;
+        document.getElementById('resultOutput').value = prompt;
+    }
+</script>
+
+</body>
+</html>
